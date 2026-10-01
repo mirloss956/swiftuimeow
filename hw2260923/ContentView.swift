@@ -1,8 +1,6 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var isTwinkling = false
-
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
@@ -24,7 +22,7 @@ struct ContentView: View {
                 NightSkyBackground()
 
                 // Starfield & Diamond Sparkles
-                StarfieldView(isTwinkling: isTwinkling)
+                StarfieldView()
 
                 // The Glowing Moon with Face & Craters
                 MoonView()
@@ -63,11 +61,6 @@ struct ContentView: View {
             }
             .frame(width: size.width, height: size.height)
             .clipped()
-            .onAppear {
-                withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
-                    isTwinkling = true
-                }
-            }
         }
         .ignoresSafeArea()
     }
@@ -122,7 +115,9 @@ private struct DiamondSparkle: Shape {
 // MARK: - Starfield & Sparkles
 
 private struct StarfieldView: View {
-    var isTwinkling: Bool
+    @State private var phaseA = false
+    @State private var phaseB = false
+    @State private var phaseC = false
 
     // Background pin-point stars (xRatio, yRatio, diameter, baseOpacity)
     private let starPoints: [(CGFloat, CGFloat, CGFloat, Double)] = [
@@ -138,18 +133,39 @@ private struct StarfieldView: View {
         (0.48, 0.18, 1.5, 0.6), (0.55, 0.18, 1.7, 0.65), (0.64, 0.03, 1.4, 0.6)
     ]
 
+    private func starOpacity(index: Int, base: Double) -> Double {
+        let isLit: Bool
+        switch index % 3 {
+        case 0: isLit = phaseA
+        case 1: isLit = phaseB
+        default: isLit = phaseC
+        }
+        return isLit ? base : base * 0.3
+    }
+
+    private func starScale(index: Int) -> CGFloat {
+        let isLit: Bool
+        switch index % 3 {
+        case 0: isLit = phaseA
+        case 1: isLit = phaseB
+        default: isLit = phaseC
+        }
+        return isLit ? 1.25 : 0.75
+    }
+
     var body: some View {
         GeometryReader { proxy in
             let w = proxy.size.width
             let h = proxy.size.height
 
             ZStack {
-                // Tiny star dots
+                // Tiny star dots with asynchronous twinkling
                 ForEach(Array(starPoints.enumerated()), id: \.offset) { idx, star in
                     Circle()
-                        .fill(Color.white.opacity(isTwinkling ? star.3 : star.3 * 0.6))
+                        .fill(Color.white.opacity(starOpacity(index: idx, base: star.3)))
                         .frame(width: star.2, height: star.2)
-                        .shadow(color: .white.opacity(0.6), radius: 2)
+                        .scaleEffect(starScale(index: idx))
+                        .shadow(color: .white.opacity(starOpacity(index: idx, base: star.3)), radius: 2)
                         .position(x: w * star.0, y: h * star.1)
                 }
 
@@ -157,48 +173,71 @@ private struct StarfieldView: View {
                 DiamondSparkle(sharpness: 0.86)
                     .fill(Color(red: 0.68, green: 0.86, blue: 1.0))
                     .frame(width: 19, height: 29)
-                    .shadow(color: Color(red: 0.55, green: 0.80, blue: 1.0).opacity(0.85), radius: 6)
-                    .scaleEffect(isTwinkling ? 1.08 : 0.94)
+                    .shadow(color: Color(red: 0.55, green: 0.80, blue: 1.0).opacity(phaseA ? 0.95 : 0.4), radius: phaseA ? 8 : 3)
+                    .scaleEffect(phaseA ? 1.15 : 0.85)
+                    .rotationEffect(.degrees(phaseA ? 6 : -6))
+                    .opacity(phaseA ? 1.0 : 0.7)
                     .position(x: w * 0.488, y: h * 0.118)
 
                 // 2. Medium Top-Right Diamond Sparkle (Pale Blue)
                 DiamondSparkle(sharpness: 0.88)
                     .fill(Color(red: 0.78, green: 0.90, blue: 1.0))
                     .frame(width: 14, height: 22)
-                    .shadow(color: Color(red: 0.60, green: 0.85, blue: 1.0).opacity(0.7), radius: 4)
-                    .scaleEffect(isTwinkling ? 0.92 : 1.06)
+                    .shadow(color: Color(red: 0.60, green: 0.85, blue: 1.0).opacity(phaseB ? 0.9 : 0.35), radius: phaseB ? 6 : 2)
+                    .scaleEffect(phaseB ? 1.18 : 0.82)
+                    .rotationEffect(.degrees(phaseB ? -8 : 8))
+                    .opacity(phaseB ? 1.0 : 0.65)
                     .position(x: w * 0.555, y: h * 0.088)
 
                 // 3. Prominent Diamond Sparkle to Left of Cat (Cyan)
                 DiamondSparkle(sharpness: 0.86)
                     .fill(Color(red: 0.46, green: 0.80, blue: 1.0))
                     .frame(width: 18, height: 27)
-                    .shadow(color: Color(red: 0.40, green: 0.75, blue: 1.0).opacity(0.9), radius: 7)
-                    .scaleEffect(isTwinkling ? 1.1 : 0.92)
+                    .shadow(color: Color(red: 0.40, green: 0.75, blue: 1.0).opacity(phaseC ? 1.0 : 0.4), radius: phaseC ? 9 : 3)
+                    .scaleEffect(phaseC ? 1.2 : 0.8)
+                    .rotationEffect(.degrees(phaseC ? 10 : -8))
+                    .opacity(phaseC ? 1.0 : 0.7)
                     .position(x: w * 0.328, y: h * 0.266)
 
                 // 4. Smaller Blue Diamond Sparkle below left sparkle
                 DiamondSparkle(sharpness: 0.88)
                     .fill(Color(red: 0.55, green: 0.82, blue: 1.0))
                     .frame(width: 10, height: 16)
-                    .shadow(color: Color(red: 0.45, green: 0.75, blue: 1.0).opacity(0.7), radius: 3)
+                    .shadow(color: Color(red: 0.45, green: 0.75, blue: 1.0).opacity(phaseA ? 0.85 : 0.3), radius: phaseA ? 5 : 2)
+                    .scaleEffect(phaseA ? 1.15 : 0.78)
+                    .rotationEffect(.degrees(phaseA ? -6 : 6))
                     .position(x: w * 0.218, y: h * 0.322)
 
                 // 5. Warm Golden Star to the Right of Cat
                 DiamondSparkle(sharpness: 0.88)
                     .fill(Color(red: 1.0, green: 0.92, blue: 0.55))
                     .frame(width: 12, height: 18)
-                    .shadow(color: Color(red: 1.0, green: 0.88, blue: 0.40).opacity(0.8), radius: 4)
-                    .scaleEffect(isTwinkling ? 0.95 : 1.12)
+                    .shadow(color: Color(red: 1.0, green: 0.88, blue: 0.40).opacity(phaseB ? 0.95 : 0.4), radius: phaseB ? 7 : 2)
+                    .scaleEffect(phaseB ? 1.22 : 0.82)
+                    .rotationEffect(.degrees(phaseB ? 12 : -10))
+                    .opacity(phaseB ? 1.0 : 0.75)
                     .position(x: w * 0.680, y: h * 0.215)
 
                 // 6. Crisp Warm Golden Diamond Sparkle below Moon
                 DiamondSparkle(sharpness: 0.85)
                     .fill(Color(red: 1.0, green: 0.95, blue: 0.55))
                     .frame(width: 13, height: 21)
-                    .shadow(color: Color(red: 1.0, green: 0.88, blue: 0.40).opacity(0.85), radius: 5)
-                    .scaleEffect(isTwinkling ? 1.12 : 0.95)
+                    .shadow(color: Color(red: 1.0, green: 0.88, blue: 0.40).opacity(phaseC ? 1.0 : 0.35), radius: phaseC ? 8 : 2)
+                    .scaleEffect(phaseC ? 1.2 : 0.8)
+                    .rotationEffect(.degrees(phaseC ? -10 : 8))
+                    .opacity(phaseC ? 1.0 : 0.65)
                     .position(x: w * 0.636, y: h * 0.605)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) {
+                phaseA = true
+            }
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true).delay(0.4)) {
+                phaseB = true
+            }
+            withAnimation(.easeInOut(duration: 3.2).repeatForever(autoreverses: true).delay(0.9)) {
+                phaseC = true
             }
         }
     }
@@ -207,12 +246,14 @@ private struct StarfieldView: View {
 // MARK: - Moon View & Facial Features
 
 private struct MoonView: View {
+    @State private var pulseHalo = false
+
     var body: some View {
         ZStack {
             // Outer Halo Glow
             Circle()
-                .fill(Color(red: 1.0, green: 0.94, blue: 0.70).opacity(0.18))
-                .scaleEffect(1.32)
+                .fill(Color(red: 1.0, green: 0.94, blue: 0.70).opacity(pulseHalo ? 0.24 : 0.14))
+                .scaleEffect(pulseHalo ? 1.36 : 1.26)
                 .blur(radius: 20)
 
             // Moon Disc Base
@@ -237,6 +278,11 @@ private struct MoonView: View {
 
             // Moon Smiling Face
             MoonFaceView()
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                pulseHalo = true
+            }
         }
     }
 }
@@ -382,9 +428,11 @@ private struct MoonSmileMouth: Shape {
 // MARK: - Cat Shape & View
 
 private struct CatView: View {
+    @State private var isBreathing = false
+
     var body: some View {
         ZStack {
-            // Cat Silhouette Body
+            // Cat Silhouette Body with gentle breathing motion
             CatSilhouette()
                 .fill(
                     LinearGradient(
@@ -397,11 +445,17 @@ private struct CatView: View {
                     )
                 )
                 .shadow(color: Color.black.opacity(0.35), radius: 4, x: 0, y: 3)
+                .scaleEffect(x: 1.0, y: isBreathing ? 1.018 : 1.0, anchor: .bottom)
 
             // Cat's Big Expressive Eyes
             CatEyesView()
                 .frame(width: 52, height: 26)
                 .offset(x: -4, y: -2)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.8).repeatForever(autoreverses: true)) {
+                isBreathing = true
+            }
         }
     }
 }
@@ -504,17 +558,70 @@ private struct CatSilhouette: Shape {
     }
 }
 
-// Cat's Signature Huge Curious Eyes
+// Cat's Signature Huge Curious Eyes with natural blinking animation
 private struct CatEyesView: View {
+    @State private var isBlinking = false
+
     var body: some View {
         HStack(spacing: 3) {
-            SingleCatEye()
-            SingleCatEye()
+            SingleCatEye(isBlinking: isBlinking)
+            SingleCatEye(isBlinking: isBlinking)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            triggerBlink()
+        }
+        .task {
+            while !Task.isCancelled {
+                // Natural blink interval: 3 to 4.5 seconds
+                let sleepTime = UInt64.random(in: 2_800_000_000...4_200_000_000)
+                try? await Task.sleep(nanoseconds: sleepTime)
+                guard !Task.isCancelled else { break }
+
+                withAnimation(.easeInOut(duration: 0.12)) {
+                    isBlinking = true
+                }
+                try? await Task.sleep(nanoseconds: 140_000_000)
+                guard !Task.isCancelled else { break }
+
+                withAnimation(.easeInOut(duration: 0.12)) {
+                    isBlinking = false
+                }
+
+                // 35% chance for a quick adorable double blink
+                if Int.random(in: 1...100) <= 35 {
+                    try? await Task.sleep(nanoseconds: 120_000_000)
+                    guard !Task.isCancelled else { break }
+
+                    withAnimation(.easeInOut(duration: 0.10)) {
+                        isBlinking = true
+                    }
+                    try? await Task.sleep(nanoseconds: 130_000_000)
+                    guard !Task.isCancelled else { break }
+
+                    withAnimation(.easeInOut(duration: 0.10)) {
+                        isBlinking = false
+                    }
+                }
+            }
+        }
+    }
+
+    private func triggerBlink() {
+        withAnimation(.easeInOut(duration: 0.12)) {
+            isBlinking = true
+        }
+        Task {
+            try? await Task.sleep(nanoseconds: 160_000_000)
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isBlinking = false
+            }
         }
     }
 }
 
 private struct SingleCatEye: View {
+    var isBlinking: Bool
     private let eyeStroke = Color(red: 1.0, green: 0.93, blue: 0.64)
 
     var body: some View {
@@ -532,20 +639,27 @@ private struct SingleCatEye: View {
                 .fill(Color.white)
                 .frame(width: 4.8, height: 4.8)
                 .offset(x: -2.8, y: -2.8)
+                .opacity(isBlinking ? 0 : 1)
 
             // Secondary Tiny Reflection Spark (bottom-right)
             Circle()
                 .fill(Color.white.opacity(0.85))
                 .frame(width: 2.2, height: 2.2)
                 .offset(x: 2.5, y: 2.2)
+                .opacity(isBlinking ? 0 : 1)
         }
         .frame(width: 21, height: 21)
+        .scaleEffect(x: 1.0, y: isBlinking ? 0.08 : 1.0, anchor: .center)
     }
 }
 
-// MARK: - Multi-layered Billowing Night Clouds
+// MARK: - Multi-layered Billowing Night Clouds with drifting parallax animation
 
 private struct CloudsView: View {
+    @State private var driftBack = false
+    @State private var driftMid = false
+    @State private var driftFront = false
+
     var body: some View {
         GeometryReader { proxy in
             let w = proxy.size.width
@@ -553,6 +667,7 @@ private struct CloudsView: View {
 
             ZStack(alignment: .bottom) {
                 // Layer 1: Back/Highest Soft Billowing Cloud Puff (illuminated by moon)
+                // Slow serene horizontal drift and gentle rise
                 BackCloudShape()
                     .fill(
                         LinearGradient(
@@ -565,11 +680,12 @@ private struct CloudsView: View {
                             endPoint: .bottom
                         )
                     )
-                    .frame(width: w * 1.08, height: h * 0.82)
-                    .offset(x: -w * 0.08, y: -h * 0.12)
+                    .frame(width: w * 1.25, height: h * 0.82)
+                    .offset(x: driftBack ? -w * 0.02 : -w * 0.14, y: driftBack ? -h * 0.14 : -h * 0.10)
                     .blur(radius: 2)
 
                 // Layer 2: Middle Puffy Cloud Bank
+                // Drifts in contrasting cadence
                 MidCloudShape()
                     .fill(
                         LinearGradient(
@@ -582,11 +698,12 @@ private struct CloudsView: View {
                             endPoint: .bottom
                         )
                     )
-                    .frame(width: w * 1.15, height: h * 0.78)
-                    .offset(x: w * 0.05, y: h * 0.05)
+                    .frame(width: w * 1.30, height: h * 0.78)
+                    .offset(x: driftMid ? w * 0.10 : -w * 0.02, y: driftMid ? h * 0.03 : h * 0.07)
                     .blur(radius: 1.5)
 
                 // Layer 3: Foreground Deep Midnight Cloud Bank
+                // Subtle foreground float
                 FrontCloudShape()
                     .fill(
                         LinearGradient(
@@ -599,8 +716,19 @@ private struct CloudsView: View {
                             endPoint: .bottom
                         )
                     )
-                    .frame(width: w * 1.12, height: h * 0.70)
-                    .offset(x: -w * 0.02, y: h * 0.18)
+                    .frame(width: w * 1.25, height: h * 0.70)
+                    .offset(x: driftFront ? -w * 0.08 : w * 0.04, y: driftFront ? h * 0.16 : h * 0.20)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 8.0).repeatForever(autoreverses: true)) {
+                driftBack = true
+            }
+            withAnimation(.easeInOut(duration: 11.5).repeatForever(autoreverses: true)) {
+                driftMid = true
+            }
+            withAnimation(.easeInOut(duration: 9.0).repeatForever(autoreverses: true)) {
+                driftFront = true
             }
         }
     }
